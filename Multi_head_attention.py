@@ -5,30 +5,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
 
-# num_heads = 8
-# head_dim = 64
-
-# multihead_W_query = torch.nn.Parameter(torch.randn(num_heads,512,head_dim)) * 0.02
-# multihead_W_key = torch.nn.Parameter(torch.randn(num_heads,512,head_dim)) * 0.02
-# multihead_W_value = torch.nn.Parameter(torch.randn(num_heads,512,head_dim)) * 0.02
-
-
-# contexts = []
-# for head in range(num_heads):
-#     Q = batch_X @ multihead_W_query[head]
-#     K = batch_X @ multihead_W_key[head]
-#     V = batch_X @ multihead_W_value[head]
-
-#     scores = Q.matmul(K.transpose(-1,-2))
-
-#     attention = F.softmax(scores / 64 * 0.5, dim = -1)
-
-#     final_context = attention @ V
-#     contexts.append(final_context)
-
-# multihead_context = torch.cat(contexts, dim = -1)
-# print(multihead_context.shape)
-
 token_info = torch.load('token_info_dict_en.pt')
 token_ids = torch.load('train_en_ids.pt')
 
