@@ -25,9 +25,9 @@ class MultiHeadAttention(nn.Module):
         self.hidden_dim = hidden_dim
         self.num_heads = num_heads
  
-        self.multihead_W_query = nn.Parameter(torch.empty(num_heads, 512, self.head_dim))
-        self.multihead_W_key = nn.Parameter(torch.empty(num_heads, 512, self.head_dim))
-        self.multihead_W_value = nn.Parameter(torch.empty(num_heads, 512, self.head_dim))
+        self.multihead_W_query = nn.Parameter(torch.empty(num_heads, hidden_dim, self.head_dim))
+        self.multihead_W_key = nn.Parameter(torch.empty(num_heads, hidden_dim, self.head_dim))
+        self.multihead_W_value = nn.Parameter(torch.empty(num_heads, hidden_dim, self.head_dim))
         self.w_o = nn.Parameter(torch.empty(self.head_dim * num_heads, self.hidden_dim))
         self.parameter_reset()
 
@@ -54,10 +54,6 @@ class MultiHeadAttention(nn.Module):
         multihead_context = torch.cat(contexts, dim = -1)
         output = multihead_context.matmul(self.w_o)
         return output
-    
-multi_head_vec = MultiHeadAttention(8,512)
-final_vectors = multi_head_vec(final_encodings)
-
 
     
 
