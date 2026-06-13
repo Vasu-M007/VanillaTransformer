@@ -5,13 +5,13 @@ import matplotlib.pyplot as plt
 import torch.nn as nn
 
 token_info = torch.load('token_info_dict_en.pt')
-token_ids = torch.load('train_en_ids.pt')
+token_ids_en = torch.load('train_en_ids.pt')
+token_ids_fr = torch.load('train_fr_ids.pt')
 
-matrix = torch.randn(8000, 512)
-embeddings = matrix[token_ids]
 
 class PositionalEncodings(nn.Module):
-
+    """Sinosuidal Positional Encodings calculation to be put
+    as input to the encoder and decoder stack"""
     def __init__(self, seq_length, d_model):
         super().__init__()
 
@@ -24,17 +24,49 @@ class PositionalEncodings(nn.Module):
         pe[:, 0::2] = torch.sin(pos * angle_term)
         pe[:, 1::2] = torch.cos(pos * angle_term)
 
-        self.register_buffer("pe", pe)
+        self.register_buffer("pe", pe) #makes pe trainable and pe would not be a part of model's state dict
 
     def forward(self, token_embeddings):
         token_embeddings = token_embeddings + self.pe
         return token_embeddings
 
-positional_encodes = PositionalEncodings(44, 512)
-X = positional_encodes(embeddings)
-print(X.shape)
+class Test_PE_Eng(nn.Module):
+    def test_a_batch(self):
+        with torch.no_grad():
+            raw_embeds = nn.Embedding(8000, 512)
+            embeddings = raw_embeds(token_ids_en)
+            first_batch = embeddings[:32]
+            pos_obj = PositionalEncodings(44,512)
+            encoder_input = pos_obj.forward(first_batch)
+
+        return encoder_input
+    
+class Test_PE_French(nn.Module):
+    def test_a_batch(self):
+        with torch.no_grad():
+            raw_embeds = nn.Embedding(8000, 512)
+            embeddings = raw_embeds(token_ids_fr)
+            first_batch = embeddings[:32]
+            pos_obj = PositionalEncodings(49,512)
+            encoder_input = pos_obj.forward(first_batch)
+
+        return encoder_input
+    
+"""---OPTIONAL TESTING SCRIPT"""
+object_en = Test_PE_Eng()
+object_fr = Test_PE_French()
+
+final_output_en = object_en.test_a_batch()
+final_output_fr = object_fr.test_a_batch()
+
+ 
+
+    
+
+    
 
 
+            
 
 
 
