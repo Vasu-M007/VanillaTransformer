@@ -78,7 +78,7 @@ class TestingEncoder:
 
             return output
 
-y = TestingEncoder()
-print(y.single_batch_test())
+# y = TestingEncoder()
+# print(y.single_batch_test())
 
 
