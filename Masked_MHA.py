@@ -60,7 +60,6 @@ class CrossAttention(nn.Module):
     def __init__(
         self,
         hidden_dim : int,
-        seq_length : int,
         num_heads : int,
         ):
         super().__init__()
@@ -106,6 +105,8 @@ class CrossAttention(nn.Module):
         output = multihead_context.matmul(self.w_o)
         return output
     
+
+    
 class TestCrossAttention(nn.Module):
         def single_batch_test(self):
             with torch.no_grad():
@@ -128,9 +129,6 @@ embeddings = embeddings[:32]
 encodings = PositionalEncodings(49,512)
 position_encodes = encodings.forward(embeddings)
         
-y = TestCrossAttention()
-result = y.single_batch_test()
-print(result.shape)
 
 
 
