@@ -18,12 +18,13 @@ class TransformerEncoder(nn.Module):
         num_heads : int,
         dropout_p : float,
         num_layers : int,
+        layer_dimension : int,
     ):
         super().__init__()
         self.embed = nn.Embedding(num_embeddings=8000, embedding_dim=512)
         self.positional_encoding = PositionalEncodings(seq_length,hidden_dim)
         self.dropout = nn.Dropout(p=dropout_p)
-        self.encoder_blocks = nn.ModuleList([EncoderBlock(num_layers,dropout_p, num_heads,hidden_dim) for _ in range(num_layers)])
+        self.encoder_blocks = nn.ModuleList([EncoderBlock(layer_dimension,dropout_p, num_heads,hidden_dim) for _ in range(num_layers)])
 
     def _reset_parameters(self):
         for p in self.parameters():
