@@ -8,40 +8,68 @@ from Masked_MHA import MaskedMHA, CrossAttention
 from Encoder_block import TransformerEncoder
 from Decoder_Block import TransformerDecoder
 
+token_info = torch.load('token_info_dict_en.pt')
+token_ids_en = torch.load('train_en_ids.pt')
+token_ids_fr = torch.load('train_fr_ids.pt')
+
 class Transformer(nn.Module):
     def __init__(
         self,
-        seq_length : int,
+        src_seq_length : int,
+        tgt_seq_length : int,
         hidden_dim : int,
         num_heads : int,
         dropout_p : float,
         num_layers : int,
         layer_dimension : int,
-        encoder_hidden_states : int
     ):
         super().__init__()
 
         self.transformer_encoder = TransformerEncoder(
-        seq_length,hidden_dim,num_heads,dropout_p,
+        src_seq_length,hidden_dim,num_heads,dropout_p,
         num_layers,layer_dimension)
 
         self.transformer_decoder = TransformerDecoder(
-            seq_length,hidden_dim,num_heads,dropout_p,layer_dimension,num_layers,encoder_hidden_states)
+            tgt_seq_length,hidden_dim,num_heads,dropout_p,layer_dimension,num_layers)
         
-        self.encoder_input = PositionalEncodings(seq_length,hidden_dim)
-        self.decoder_input = PositionalEncodings(seq_length,hidden_dim)
 
-    def create_token_embeddings(self, token_ids_en, token_ids_fr):
-        embedding = nn.Embedding(8000,512)
-        token_embed_en = embedding(token_ids_en)
-        token_embed_fr = embedding(token_ids_fr)
+    def _reset_parameters(self):
+        for p in self.parameters():
+            if p.dim() > 1:
+                nn.init.xavier_uniform_(p) 
+        
         
     def forward(self, token_ids_en, token_ids_fr):
-        embedding = nn.Embedding(8000,512)
-        token_embeddings = embedding(token_ids_en)
-
         encoder_hidden_states = self.transformer_encoder.forward(token_ids_en)
-        decoder_output = self.tr
+        final_output = self.transformer_decoder.forward(token_ids_fr,encoder_hidden_states)
+
+        return final_output
+    
+
+class TestTransformer:
+    def single_batch_test(self):
+        with torch.no_grad():
+            output = Transformer(44,49,512,8,0.1,6,2048)
+
+            output.eval()
+            output._reset_parameters()
+
+            input_batch_en = token_ids_en[:32]
+            input_batch_fr = token_ids_fr[:32]
+
+            logits = output.forward(input_batch_en, input_batch_fr)
+
+        return logits
+    
+y = TestTransformer()
+result = y.single_batch_test()
+
+print(result)
+
+    
+
+        
+
 
 
 
