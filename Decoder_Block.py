@@ -40,8 +40,7 @@ class TransformerDecoder(nn.Module):
             x = decoder_block.forward(x)
 
         logits = self.linear_projection(x)
-        output = F.softmax(logits,-1)
-        return output
+        return logits
 
 class DecoderBlock(nn.Module):
     def __init__(self,
