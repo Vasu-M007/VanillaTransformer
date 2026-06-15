@@ -16,7 +16,6 @@ class TransformerDecoder(nn.Module):
         dropout_p : float,
         layer_dimension : int,
         num_layers : int,
-        encoder_hidden_states,
     ):
         super().__init__()
         self.embed = nn.Embedding(num_embeddings=8000, embedding_dim=512)
@@ -24,20 +23,20 @@ class TransformerDecoder(nn.Module):
         self.dropout = nn.Dropout(p=dropout_p)
         self.linear_projection = nn.Linear(hidden_dim,8000)
         self.decoder_blocks = nn.ModuleList([DecoderBlock(
-            layer_dimension,dropout_p,num_heads,hidden_dim,seq_length, encoder_hidden_states,8000) for _ in range(num_layers)])
+            layer_dimension,dropout_p,num_heads,hidden_dim,seq_length) for _ in range(num_layers)])
 
     def _reset_parameters(self):
         for p in self.parameters():
             if p.dim() > 1:
                 nn.init.xavier_uniform_(p) 
 
-    def forward(self, token_ids_fr):
+    def forward(self, token_ids_fr,encoder_hidden_states):
         embeddings = self.embed(token_ids_fr)
         x = self.positional_encoding.forward(embeddings)
         x = x[:, :-1]    #shape : [32,48,512]
         x = self.dropout(x)
         for decoder_block in self.decoder_blocks:
-            x = decoder_block.forward(x)
+            x = decoder_block(x,encoder_hidden_states)
 
         logits = self.linear_projection(x)
         return logits
@@ -49,7 +48,6 @@ class DecoderBlock(nn.Module):
         num_heads : int, 
         hidden_dim : int,
         seq_length : int,
-        encoder_hidden_states,
         ):
 
         super().__init__()
@@ -70,14 +68,12 @@ class DecoderBlock(nn.Module):
         self.layer_norm2 = nn.LayerNorm(hidden_dim)
         self.layer_norm3 = nn.LayerNorm(hidden_dim)
 
-        self.encoder_hidden_states = encoder_hidden_states
 
-
-    def forward(self,x):
+    def forward(self,x, encoder_hidden_states):
         output = self.dropout1(self.mmha.forward(x))
         x = self.layer_norm1(x + output)
 
-        output = self.dropout2(self.cross_attn.forward(x,self.encoder_hidden_states))
+        output = self.dropout2(self.cross_attn.forward(x,encoder_hidden_states))
         x = self.layer_norm2(x + output)
 
         output = self.dropout3(self.ffnn(x))
