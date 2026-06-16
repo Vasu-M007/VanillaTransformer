@@ -56,15 +56,13 @@ class TestTransformer:
 
             input_batch_en = token_ids_en[:32]
             input_batch_fr = token_ids_fr[:32]
+            decoder_input = input_batch_fr[:, :-1] #right shifted shape:[32,48,512]
 
-            logits = output.forward(input_batch_en, input_batch_fr)
+            logits = output.forward(input_batch_en, decoder_input)
 
         return logits
-    
-y = TestTransformer()
-result = y.single_batch_test()
 
-print(result)
+
 
     
 
