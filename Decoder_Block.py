@@ -33,8 +33,8 @@ class TransformerDecoder(nn.Module):
     def forward(self, token_ids_fr,encoder_hidden_states):
         embeddings = self.embed(token_ids_fr)
         x = self.positional_encoding.forward(embeddings)
-        x = x[:, :-1]    #shape : [32,48,512]
         x = self.dropout(x)
+
         for decoder_block in self.decoder_blocks:
             x = decoder_block(x,encoder_hidden_states)
 
@@ -52,7 +52,7 @@ class DecoderBlock(nn.Module):
 
         super().__init__()
 
-        self.mmha = MaskedMHA(num_heads,hidden_dim,seq_length - 1)
+        self.mmha = MaskedMHA(num_heads,hidden_dim,seq_length-1)
         self.cross_attn = CrossAttention(hidden_dim,num_heads)
         self.ffnn = nn.Sequential(
             nn.Linear(hidden_dim,layer_dim),
