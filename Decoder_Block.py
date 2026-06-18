@@ -30,13 +30,17 @@ class TransformerDecoder(nn.Module):
             if p.dim() > 1:
                 nn.init.xavier_uniform_(p) 
 
-    def forward(self, token_ids_fr,encoder_hidden_states):
-        embeddings = self.embed(token_ids_fr)
+    def forward(self, token_ids_fr,encoder_hidden_states,src_padding_mask):
+        tgt_padding_mask = (token_ids_fr == 0)
+        embeddings = self.embed(token_ids_fr) * (self.embed.embedding_dim ** 0.5)
         x = self.positional_encoding.forward(embeddings)
         x = self.dropout(x)
 
         for decoder_block in self.decoder_blocks:
-            x = decoder_block(x,encoder_hidden_states)
+            x = decoder_block(
+            x,encoder_hidden_states,
+            tgt_padding_mask=tgt_padding_mask,
+            src_padding_mask=src_padding_mask)
 
         logits = self.linear_projection(x)
         return logits
@@ -52,7 +56,7 @@ class DecoderBlock(nn.Module):
 
         super().__init__()
 
-        self.mmha = MaskedMHA(num_heads,hidden_dim,seq_length-1)
+        self.mmha = MaskedMHA(num_heads,hidden_dim)
         self.cross_attn = CrossAttention(hidden_dim,num_heads)
         self.ffnn = nn.Sequential(
             nn.Linear(hidden_dim,layer_dim),
@@ -69,11 +73,11 @@ class DecoderBlock(nn.Module):
         self.layer_norm3 = nn.LayerNorm(hidden_dim)
 
 
-    def forward(self,x, encoder_hidden_states):
-        output = self.dropout1(self.mmha.forward(x))
+    def forward(self,x, encoder_hidden_states,tgt_padding_mask=None, src_padding_mask=None):
+        output = self.dropout1(self.mmha.forward(x,tgt_padding_mask))
         x = self.layer_norm1(x + output)
 
-        output = self.dropout2(self.cross_attn.forward(x,encoder_hidden_states))
+        output = self.dropout2(self.cross_attn.forward(x,encoder_hidden_states,src_padding_mask))
         x = self.layer_norm2(x + output)
 
         output = self.dropout3(self.ffnn(x))
