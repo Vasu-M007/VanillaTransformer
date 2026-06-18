@@ -40,8 +40,9 @@ class Transformer(nn.Module):
         
         
     def forward(self, token_ids_en, token_ids_fr):
+        src_padding_mask = (token_ids_en == 0)
         encoder_hidden_states = self.transformer_encoder.forward(token_ids_en)
-        final_output = self.transformer_decoder.forward(token_ids_fr,encoder_hidden_states)
+        final_output = self.transformer_decoder.forward(token_ids_fr,encoder_hidden_states,src_padding_mask)
 
         return final_output
     
