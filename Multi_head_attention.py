@@ -37,17 +37,22 @@ class MultiHeadAttention(nn.Module):
         nn.init.xavier_uniform_(self.multihead_W_value)
         nn.init.xavier_uniform_(self.w_o)
 
-    def forward(self, input_batch):
+    def forward(self, input_batch, key_padding_mask=None):
+        # key_padding_mask shape: [batch, seq_len], True where token is <PAD>
         contexts = []
         for head in range(self.num_heads):
+
             Q = input_batch @ self.multihead_W_query[head]
             K = input_batch @ self.multihead_W_key[head]
             V = input_batch @ self.multihead_W_value[head]
 
-            scores = Q.matmul(K.transpose(-1,-2))
+            scores = (Q.matmul(K.transpose(-1,-2)) / (self.head_dim ** 0.5))
 
-            attention = F.softmax(scores / self.head_dim ** 0.5, dim = -1)
-
+            if key_padding_mask is not None:
+                mask = key_padding_mask.unsqueeze(1)  # [batch, 1, seq_len_k]
+                scores = scores.masked_fill(mask, float("-inf"))
+                
+            attention = F.softmax(scores, dim = -1)
             final_context = attention @ V
             contexts.append(final_context)
 
