@@ -1,96 +1,186 @@
-# Transformer from Scratch — English to French Translation
+# Vanilla Transformer From Scratch in PyTorch
 
-A vanilla Transformer (Vaswani et al., 2017) built from the ground up in PyTorch — no `nn.Transformer`, no `nn.MultiheadAttention`. Every matrix multiply in the attention mechanism, the encoder/decoder stacks, and the BPE tokenizer is hand-written, mostly to actually understand what's happening inside the black box instead of importing it.
+A complete implementation of the original **Transformer architecture** proposed in *Attention Is All You Need (Vaswani et al., 2017)* built entirely from scratch in PyTorch for English-to-French machine translation.
 
-## What's in here
+This project was developed to gain a deeper understanding of modern sequence-to-sequence models by implementing every major Transformer component manually instead of relying on PyTorch's built-in `nn.Transformer` modules.
 
-- A byte-pair encoding tokenizer, trained separately for English and French, written from scratch (no `tokenizers` library)
-- Sinusoidal positional encodings
-- Multi-head self-attention (encoder)
-- Masked multi-head self-attention (decoder, causal masking)
-- Cross-attention (decoder attending to encoder outputs)
-- Full encoder and decoder stacks with residual connections, layer norm, and feed-forward blocks
-- A training loop with padding-aware loss and accuracy
-- Greedy decoding for inference
+## Project Highlights
 
-## Dataset
+* Implemented the original Encoder-Decoder Transformer architecture from scratch.
+* Built custom Byte Pair Encoding (BPE) tokenizers for English and French datasets.
+* Implemented Multi-Head Self Attention, Masked Self Attention, and Cross Attention manually.
+* Added source and target padding masks to correctly handle padded sequences.
+* Implemented sinusoidal positional encodings from the original paper.
+* Trained on the Multi30K English-French translation dataset.
+* Added teacher forcing, learning rate warmup scheduling, gradient clipping, and validation tracking.
+* Implemented autoregressive greedy decoding for inference.
 
-English-French sentence pairs from a Kaggle En-Fr dataset, under 50k sentence pairs. Each language gets its own BPE vocabulary, trained independently, capped at 8000 tokens.
+---
 
 ## Architecture
 
-| Component | Value |
-|---|---|
-| Hidden dim | 512 |
-| Attention heads | 8 |
-| Encoder/decoder layers | 6 each |
-| Feed-forward dim | 2048 |
-| Vocab size (per language) | 8000 |
-| Max source length | 44 |
-| Max target length | 49 |
-| Dropout | 0.1 |
+The model follows the original Transformer design:
 
-Standard Transformer shape — nothing exotic. The interesting part isn't the hyperparameters, it's that every layer underneath them is hand-rolled.
+* 6 Encoder Layers
+* 6 Decoder Layers
+* Hidden Dimension: 512
+* Attention Heads: 8
+* Feed Forward Dimension: 2048
+* Vocabulary Size: 8000
+* Dropout: 0.1
 
-## How it's structured
+### Encoder Block
 
-```
-byte_pair_encodings_en.py    # trains BPE vocab + tokenizes English corpus
-byte_pair_encodings_fr.py    # trains BPE vocab + tokenizes French corpus
-Positional_encodings.py      # sinusoidal position embeddings
-Multi_head_attention.py      # encoder self-attention
-Masked_MHA.py                 # decoder masked self-attention + cross-attention
-Encoder_block.py             # encoder block + stack
-Decoder_Block.py             # decoder block + stack
-Transformer.py                # wires encoder + decoder together
-training.py                   # training loop, validation, checkpointing
-```
+Each encoder block consists of:
 
-### Tokenization
+1. Multi-Head Self Attention
+2. Residual Connection + Layer Normalization
+3. Feed Forward Network (512 → 2048 → 512)
+4. Residual Connection + Layer Normalization
 
-Both BPE scripts follow the same process: split the corpus into words, start from individual characters, and greedily merge the most frequent adjacent pair until the vocab hits 8000 tokens. Each language's merges are learned independently on its own corpus, so the English and French vocabularies aren't aligned with each other — that's expected, they're not supposed to be.
+### Decoder Block
 
-Special tokens (`<PAD>`, `<SOS>`, `<EOS>`, `<UNK>`) sit at the front of both vocabularies in the same order, which matters: it keeps `<PAD>`'s token id consistent across both languages, so a single `PAD_ID` works for masking on either side of the model without a lookup.
+Each decoder block consists of:
 
-### Attention
+1. Masked Multi-Head Self Attention
+2. Encoder-Decoder Cross Attention
+3. Feed Forward Network
+4. Residual Connections + Layer Normalization
 
-The three attention variants share the same core mechanic — split into heads, project to Q/K/V, scaled dot-product, recombine — but each needed something different:
+---
 
-- **Self-attention (encoder)** needs to ignore padded positions in the source sentence, so it never attends to filler tokens.
-- **Masked self-attention (decoder)** needs a causal mask on top of the padding mask — a token can't peek at positions ahead of it in the sequence it's generating, and the mask is built fresh for whatever sequence length is passed in, rather than fixed to a training-time length. That second part matters more than it sounds: it's what makes the same module usable both during training (full sequence at once) and during decoding (one token at a time, growing).
-- **Cross-attention (decoder → encoder)** lets each decoder position pull in context from the source sentence, masked the same way as encoder self-attention so it ignores source padding.
+## Tokenization
 
-### Training
+A custom Byte Pair Encoding (BPE) tokenizer was implemented for both English and French corpora.
 
-Teacher-forced, as is standard: the decoder sees the ground-truth target sequence shifted right by one position, and is trained to predict the next token at every position in parallel. Loss is cross-entropy with padding positions excluded (`ignore_index`). Validation accuracy is computed the same way, masked so padding tokens don't inflate the score.
+Special tokens used:
 
-The best checkpoint (lowest validation loss) is saved after every epoch where it improves.
-### Inference
-
-Training doesn't transfer directly to inference — at training time the model sees the correct previous tokens (teacher forcing); at inference it only has what it's generated so far. Greedy decoding starts from `<SOS>`, runs the decoder, takes the highest-probability next token, appends it, and repeats — feeding the model its own output each step until it produces `<EOS>` or hits the max length.
-
-## Running it
-
-```bash
-# 1. Build vocabularies and tokenize the corpus
-python byte_pair_encodings_en.py
-python byte_pair_encodings_fr.py
-
-# 2. Train
-python training.py
-
-# 3. Inference[On a custom batch]
-python Transformer_inference.py
+```text
+<PAD>
+<SOS>
+<EOS>
+<UNK>
 ```
 
-Training expects `archive(1)/train.en` and `archive(1)/train.fr` in the working directory, and produces `train_en_ids.pt`, `train_fr_ids.pt`, `token_info_dict_en.pt`, and `token_info_dict_fr.pt` as cached tensors so tokenization doesn't need to be rerun on every training pass.
+Tokenized sequences were converted into fixed-length tensors and used for training.
 
+---
 
-This is a from-scratch implementation built to understand the Transformer architecture at the level of individual matrix multiplications, not a production-grade translation system. There's no beam search, no KV-caching for faster decoding, no BLEU scoring, and the BPE tokenizer is a straightforward reference implementation rather than an optimized one. All of that is by design — the goal was depth of understanding on the core architecture, not breadth of features.
+## Attention Implementation
 
-#Future Scope
+All attention mechanisms were implemented manually using matrix multiplications and learned projection matrices.
 
-- Beam search instead of greedy decoding, for noticeably better translation quality on longer sentences
-- BLEU score evaluation, to have a real translation-quality metric rather than relying on next-token accuracy alone
-- KV-caching during decoding, to avoid recomputing attention over the entire generated sequence at every step
-- A learning rate warmup schedule, closer to the original paper's training recipe
+### Multi-Head Self Attention
+
+Used within encoder layers to allow each token to attend to every other token in the source sequence.
+
+### Masked Multi-Head Attention
+
+Used inside decoder layers with a causal mask to prevent the model from attending to future tokens during training.
+
+### Cross Attention
+
+Implemented using:
+
+* Queries from decoder hidden states
+* Keys from encoder hidden states
+* Values from encoder hidden states
+
+This enables the decoder to attend to relevant regions of the source sentence while generating translations.
+
+---
+
+## Training
+
+Training includes:
+
+* Cross Entropy Loss with padding ignored
+* Adam Optimizer
+* Gradient Clipping
+* Teacher Forcing
+* Learning Rate Warmup Scheduler
+* Validation Loss and Accuracy Tracking
+* Best Model Checkpoint Saving
+
+The dataset was split into:
+
+* 90% Training
+* 10% Validation
+
+---
+
+## Inference
+
+Inference is performed using greedy decoding.
+
+The decoder starts with the `<SOS>` token and generates one token at a time until `<EOS>` is produced or the maximum sequence length is reached.
+
+```text
+<SOS>
+  ↓
+Predict Next Token
+  ↓
+Append Token
+  ↓
+Repeat
+  ↓
+<EOS>
+```
+
+---
+
+## Example Translation
+
+**Input**
+
+```text
+Two young White males are outside near many bushes.
+```
+
+**Generated Output**
+
+```text
+Deux jeunes hommes blancs sont dehors près de buissons.
+```
+
+---
+
+## Repository Structure
+
+```text
+Transformer.py                 # Encoder-Decoder Transformer wrapper
+Encoder_block.py               # Encoder implementation
+Decoder_Block.py               # Decoder implementation
+Multi_head_attention.py        # Encoder self-attention
+Masked_MHA.py                  # Masked attention & cross attention
+Positional_encodings.py        # Sinusoidal positional encodings
+byte_pair_encodings_en.py      # English BPE tokenizer
+byte_pair_encoding_fr.py       # French BPE tokenizer
+Training.py                    # Training pipeline
+Transformer_inference.py       # Greedy decoding inference
+```
+
+---
+
+## Technologies Used
+
+* Python
+* PyTorch
+* NumPy
+* Matplotlib
+
+---
+
+## Key Learnings
+
+Through this project I gained hands-on experience with:
+
+* Transformer Architectures
+* Attention Mechanisms
+* Neural Machine Translation
+* Sequence-to-Sequence Learning
+* Autoregressive Decoding
+* Learning Rate Scheduling
+* Training Deep Learning Models from First Principles
+
+This implementation intentionally avoids using high-level Transformer abstractions in order to understand and reproduce the core mechanics of the original architecture.
