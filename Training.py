@@ -49,7 +49,16 @@ model = model.to(device)
 PAD_ID = token_info["<PAD>"]
 
 criterion = nn.CrossEntropyLoss(ignore_index=PAD_ID)
-optimizer = torch.optim.Adam(model.parameters(), lr = 1e-4)
+
+optimizer = torch.optim.Adam(
+    model.parameters(), lr=1e-4, betas=(0.9, 0.98), eps=1e-9)
+
+warmup_steps = 4000
+step_num = 0
+
+def get_lr(step_num, hidden_dim=512, warmup_steps=4000):
+    step_num = max(step_num, 1)
+    return (hidden_dim ** -0.5) * min(step_num ** -0.5, step_num * warmup_steps ** -1.5)
 
 best_val_loss = float("inf")
 num_epochs = 20
@@ -83,6 +92,10 @@ for epoch in range(num_epochs):
             model.parameters(),
             max_norm=1.0
         )   
+        step_num += 1
+        lr = get_lr(step_num)
+        for param_group in optimizer.param_groups:
+            param_group['lr'] = lr
 
         optimizer.step()
         train_loss += loss.item()
@@ -146,7 +159,7 @@ for epoch in range(num_epochs):
                 "val_loss": avg_val_loss,
                 "val_accuracy": val_accuracy,
             },   
-            "best_transformer.pth"
+            "best_transformer_updated.pth"
         )
 
         print(
