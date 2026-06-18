@@ -79,7 +79,8 @@ python byte_pair_encodings_fr.py
 # 2. Train
 python training.py
 
-# 3. Translate (see decode.py / your inference script)
+# 3. Inference[On a custom batch]
+python Transformer_inference.py
 ```
 
 Training expects `archive(1)/train.en` and `archive(1)/train.fr` in the working directory, and produces `train_en_ids.pt`, `train_fr_ids.pt`, `token_info_dict_en.pt`, and `token_info_dict_fr.pt` as cached tensors so tokenization doesn't need to be rerun on every training pass.
