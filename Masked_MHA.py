@@ -11,7 +11,7 @@ token_ids_fr = torch.load('train_fr_ids.pt')
 token_ids_en = torch.load('train_en_ids.pt')
 
 class MaskedMHA(nn.Module):
-    def __init__(self, num_heads : int, hidden_dim : int, seq_length : int):
+    def __init__(self, num_heads : int, hidden_dim : int):
         """Here Seq length becomes 48 as decoder input is right shifted by 1"""
         super().__init__()
         assert hidden_dim % num_heads == 0
@@ -23,11 +23,10 @@ class MaskedMHA(nn.Module):
         self.multihead_W_key = nn.Parameter(torch.empty(num_heads, hidden_dim, self.head_dim))
         self.multihead_W_value = nn.Parameter(torch.empty(num_heads, hidden_dim, self.head_dim))
         self.w_o = nn.Parameter(torch.empty(self.head_dim * num_heads, self.hidden_dim))
-        self.mask_matrix = torch.triu(torch.ones(seq_length,seq_length),diagonal=1).bool()
-        self.register_buffer(
-            "masked_matrix",
-            torch.triu(torch.ones(seq_length, seq_length),diagonal=1).bool()
-        )
+        # self.register_buffer(
+        #     "mask_matrix",
+        #     torch.triu(torch.ones(seq_length, seq_length),diagonal=1).bool()
+        # )
         self.parameter_reset()
         
     def parameter_reset(self):
@@ -36,7 +35,13 @@ class MaskedMHA(nn.Module):
         nn.init.xavier_uniform_(self.multihead_W_value)
         nn.init.xavier_uniform_(self.w_o)
 
-    def forward(self, decoder_in_batch):
+    def forward(self, decoder_in_batch, key_padding_mask=None):
+        seq_len = decoder_in_batch.size(1)
+        causal_mask = torch.triu(
+            torch.ones(seq_len, seq_len, device=decoder_in_batch.device),
+            diagonal=1
+        ).bool()
+
         contexts = []
         for head in range(self.num_heads):
             Q = decoder_in_batch @ self.multihead_W_query[head]
@@ -44,8 +49,12 @@ class MaskedMHA(nn.Module):
             V = decoder_in_batch @ self.multihead_W_value[head]
 
             scores = Q.matmul(K.transpose(-1,-2))
-            scores = scores.masked_fill(self.mask_matrix,float("-inf"))
+            scores = scores.masked_fill(causal_mask, float("-inf"))
 
+            if key_padding_mask is not None:
+                pad_mask = key_padding_mask.unsqueeze(1)  # [batch, 1, seq_len]
+                scores = scores.masked_fill(pad_mask, float("-inf"))
+             
             attention = F.softmax(scores / self.head_dim ** 0.5, dim = -1)
 
             final_context = attention @ V
@@ -87,7 +96,7 @@ class CrossAttention(nn.Module):
         nn.init.xavier_uniform_(self.decoder_W_query)
         nn.init.xavier_uniform_(self.w_o)
 
-    def forward(self, decoder_in_batch, encoder_hidden_states):
+    def forward(self, decoder_in_batch, encoder_hidden_states, key_padding_mask=None):
         contexts = []
         for head in range(self.num_heads):
             Q = decoder_in_batch @ self.decoder_W_query[head]
@@ -95,6 +104,10 @@ class CrossAttention(nn.Module):
             V = encoder_hidden_states.matmul(self.encoder_W_value[head])
 
             scores = Q.matmul(K.transpose(-1,-2))
+
+            if key_padding_mask is not None:
+                mask = key_padding_mask.unsqueeze(1)  # [batch, 1, src_seq_len]
+                scores = scores.masked_fill(mask, float("-inf"))
     
             attention = F.softmax(scores / self.head_dim ** 0.5, dim = -1)
 
@@ -105,17 +118,15 @@ class CrossAttention(nn.Module):
         output = multihead_context.matmul(self.w_o)
         return output
     
-
-    
 class TestCrossAttention(nn.Module):
         def single_batch_test(self):
             with torch.no_grad():
-                encoder_object = TransformerEncoder(44,512,4,0.1,2)
+                encoder_object = TransformerEncoder(44,512,4,0.1,2,2048)
                 input_batch = token_ids_en[:32]
                 encoder_out = encoder_object.forward(input_batch)
 
-                masked_multi = MaskedMHA(8,512,48)
-                final_out = CrossAttention(512,48,8)
+                masked_multi = MaskedMHA(8,512)
+                final_out = CrossAttention(512,8)
                 decoder_input = position_encodes[:, :-1]
                 mmha_out = masked_multi.forward(decoder_input)
 
@@ -128,6 +139,10 @@ embeddings = embed(token_ids_fr)
 embeddings = embeddings[:32]
 encodings = PositionalEncodings(49,512)
 position_encodes = encodings.forward(embeddings)
+
+y = TestCrossAttention()
+result = y.single_batch_test()
+print(result.shape)
         
 
 
