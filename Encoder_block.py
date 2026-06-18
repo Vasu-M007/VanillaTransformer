@@ -32,11 +32,13 @@ class TransformerEncoder(nn.Module):
                 nn.init.xavier_uniform_(p) 
 
     def forward(self, token_ids):
-        x = self.embed(token_ids)
+        key_padding_mask = (token_ids == 0)
+        x = self.embed(token_ids) * (self.embed.embedding_dim ** 0.5)
+
         x = self.positional_encoding(x)
         x = self.dropout(x)
         for encoder_block in self.encoder_blocks:
-            x = encoder_block.forward(x)
+            x = encoder_block.forward(x,key_padding_mask)
 
         return x
 
@@ -57,8 +59,8 @@ class EncoderBlock(nn.Module):
         self.layer_norm2 = nn.LayerNorm(hidden_dim)
 
 
-    def forward(self, x):
-        output = self.dropout1(self.mha.forward(x))
+    def forward(self, x, key_padding_mask=None):
+        output = self.dropout1(self.mha.forward(x,key_padding_mask))
         x = self.layer_norm1(x + output)
 
         output = self.dropout2(self.feed_forward(x))
@@ -70,7 +72,7 @@ class TestingEncoder:
     def single_batch_test(self):
         with torch.no_grad():
             encoder = TransformerEncoder(seq_length=44,hidden_dim=512,
-                                        num_heads=8,dropout_p=0.1,num_layers=6)
+                                        num_heads=8,dropout_p=0.1,num_layers=6,layer_dimension=2048)
             encoder._reset_parameters()
             encoder.eval()
 
