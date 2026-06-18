@@ -27,7 +27,8 @@ class PositionalEncodings(nn.Module):
         self.register_buffer("pe", pe) #makes pe trainable and pe would not be a part of model's state dict
 
     def forward(self, token_embeddings):
-        token_embeddings = token_embeddings + self.pe
+        seq_len = token_embeddings.size(1)
+        token_embeddings = token_embeddings + self.pe[:seq_len]
         return token_embeddings
 
 class Test_PE_Eng(nn.Module):
